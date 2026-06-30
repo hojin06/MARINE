@@ -1,0 +1,17 @@
+# MARINE 의존성 (Python 3.11 기준)
+# 학습/추론
+torch>=2.5
+torchvision>=0.20
+numpy>=1.26
+pyyaml>=6.0
+pillow>=10.0
+
+# 수중 no-reference 지표 (UIQM/UCIQE)
+opencv-python>=4.8
+scipy>=1.11
+
+# 데이터 취득 (EUVP HF 미러 parquet 디코드 등)
+pyarrow>=14.0
+gdown>=5.0          # UIEB/일부 Google Drive 소스
+
+# 선택: perceptual loss 는 torchvision VGG16 가중치 자동 다운로드 사용

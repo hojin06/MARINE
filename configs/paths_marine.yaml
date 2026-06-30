@@ -1,0 +1,26 @@
+# =============================================================================
+# MARINE — 경로 설정 (수중 데이터 + LUNA2 warm-start 참조)
+# =============================================================================
+# marine_root 한 곳만 고치면 하위 데이터 경로가 따라간다. warmstart 는 LUNA2
+# 산출물(절대경로)을 직접 참조한다.
+# =============================================================================
+
+marine_root: "c:/대학교/LUNA_paperWORKS/MARINE"
+
+# --- 수중 데이터셋 (marine_root 기준 상대경로) ---
+datasets:
+  uieb:   "datasets/UIEB"            # raw-890/(deg) , reference-890/(ref)
+  euvp:   "datasets/EUVP/Paired"     # underwater_{imagenet,dark}/{trainA,trainB}
+  turbid: "datasets/TURBID"          # Milk/Chlorophyll/DeepBlue/TURBID3D (탁도단계 eval)
+  ruie:   "datasets/RUIE_repo"       # UIQS/UCCS/UTTS (no-ref / 검출 eval)
+
+# --- UIEB split 정의 (재현용 CSV; experiments/make_uieb_split.py 가 생성) ---
+uieb_split_csv: "configs/uieb_split.csv"
+
+# --- warm-start: LUNA2 Phase1 best (guidefix) 체크포인트 (절대경로) ---
+warmstart:
+  luna2_p1: "c:/대학교/LUNA_paperWORKS/LUNA2/runs/bilateral_phase1_l1only_guidefix/checkpoints/last.pth"
+
+# --- 산출물 (marine_root 기준) ---
+outputs:
+  runs: "runs"
