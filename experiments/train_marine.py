@@ -167,6 +167,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--num_workers", type=int, default=None)
     p.add_argument("--no_warmstart", action="store_true")
     p.add_argument("--no_amp", action="store_true")
+    p.add_argument("--gpu_util", type=float, default=1.0,
+                   help="목표 GPU 평균 가동률(0~1). 예: 0.8 → 매 iter 약 25%% 휴식으로 "
+                        "다른 작업용 여유 확보(학습은 그만큼 느려짐). 1.0=제한없음")
     p.add_argument("--smoke", action="store_true",
                    help="소량 subset + 50 iter 로 빠른 파이프라인 점검")
     p.add_argument("--max_train_samples", type=int, default=0)
@@ -222,6 +225,9 @@ def train(cfg: dict, paths: Dict[str, str], args: argparse.Namespace) -> None:
     num_epochs = tr.get("num_epochs", 30)
     use_amp = tr.get("amp", True) and device.startswith("cuda")
     grad_clip = float(tr.get("grad_clip", 0.0))
+    # GPU 가동률 throttle: 목표 util u 이면 매 iter 계산시간의 (1/u - 1) 만큼 sleep
+    gpu_util = float(getattr(args, "gpu_util", 1.0) or 1.0)
+    throttle = (1.0 / max(gpu_util, 1e-3) - 1.0) if gpu_util < 0.999 else 0.0
 
     print(HRULE)
     print(f" MARINE Stage A 학습 — {exp}")
@@ -306,6 +312,7 @@ def train(cfg: dict, paths: Dict[str, str], args: argparse.Namespace) -> None:
         sums = {"total": 0.0, "l1": 0.0, "vgg": 0.0, "ssim": 0.0}
         nb, t0 = 0, time.time()
         for low, high in train_loader:
+            _it0 = time.time()
             low = low.to(device, non_blocking=True)
             high = high.to(device, non_blocking=True)
             optimizer.zero_grad(set_to_none=True)
@@ -320,6 +327,12 @@ def train(cfg: dict, paths: Dict[str, str], args: argparse.Namespace) -> None:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip)
             scaler.step(optimizer)
             scaler.update()
+
+            # GPU 가동률 throttle (다른 작업용 여유 확보)
+            if throttle > 0:
+                if device.startswith("cuda"):
+                    torch.cuda.synchronize()
+                time.sleep((time.time() - _it0) * throttle)
 
             global_step += 1
             nb += 1
