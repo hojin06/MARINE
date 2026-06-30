@@ -173,6 +173,8 @@ def parse_args() -> argparse.Namespace:
                         "다른 작업용 여유 확보(학습은 그만큼 느려짐). 1.0=제한없음")
     p.add_argument("--grayworld", type=float, default=None,
                    help="gray-world 색항상성 손실 가중치(None=config의 loss.lambda_grayworld 사용)")
+    p.add_argument("--guidance", type=str, default=None, choices=[None, "luma", "maxrgb"],
+                   help="guidance anchor 변형(M3.2 ablation). None=config/luma")
     p.add_argument("--smoke", action="store_true",
                    help="소량 subset + 50 iter 로 빠른 파이프라인 점검")
     p.add_argument("--max_train_samples", type=int, default=0)
@@ -261,6 +263,13 @@ def train(cfg: dict, paths: Dict[str, str], args: argparse.Namespace) -> None:
 
     # --- 모델 / warm-start ---
     model = build_from_config(cfg).to(device)
+    # guidance ablation(M3.2): warm-start 전에 교체해야 guidance 가중치가 로드됨
+    gvar = args.guidance if args.guidance is not None else cfg["model"].get("guidance_variant", "luma")
+    if gvar and gvar != "luma":
+        from marine.models.guidance_variants import swap_guidance
+        swap_guidance(model, gvar, c_hidden=cfg["model"].get("guidance_channels", 16))
+        cfg["model"]["guidance_variant"] = gvar
+        print(f"  guidance variant: {gvar}")
     n_params = sum(p.numel() for p in model.parameters())
     print(f"  model params: {n_params:,} ({n_params/1e3:.1f} K)")
     if tr.get("warmstart", True) and not args.resume:

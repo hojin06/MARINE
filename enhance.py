@@ -58,6 +58,10 @@ def load_model(ckpt_path: Path, device: str):
     ckpt = torch.load(ckpt_path, map_location=device, weights_only=False)
     cfg = {"model": ckpt.get("model_cfg") or ckpt.get("config", {}).get("model", {})}
     model = build_from_config(cfg).to(device)
+    _gv = cfg["model"].get("guidance_variant", "luma") if isinstance(cfg["model"], dict) else "luma"
+    if _gv and _gv != "luma":
+        from marine.models.guidance_variants import swap_guidance
+        swap_guidance(model, _gv, c_hidden=cfg["model"].get("guidance_channels", 16))
     sd = ckpt["model"] if isinstance(ckpt, dict) and "model" in ckpt else ckpt
     model.load_state_dict(sd)
     model.eval()
