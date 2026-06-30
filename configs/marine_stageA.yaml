@@ -48,6 +48,7 @@ loss:
   lambda_ssim: 1.0
   use_perceptual: true
   perceptual_layers: ["relu3_3"]
+  lambda_grayworld: 0.0    # 수중 색항상성(>0 시 활성; M2.5는 --grayworld 0.1 로 켬)
 
 # --- 로깅 (runs/{experiment_name}/) ---
 logging:

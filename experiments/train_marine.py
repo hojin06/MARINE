@@ -51,6 +51,7 @@ from src.losses.restoration import build_restoration_loss
 from src.utils.metrics import evaluate
 # --- MARINE 자체 ---
 from marine.data.underwater_dataset import build_marine_train, build_marine_eval
+from marine.losses.underwater import gray_world_loss
 
 HRULE = "=" * 78
 
@@ -170,6 +171,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--gpu_util", type=float, default=1.0,
                    help="목표 GPU 평균 가동률(0~1). 예: 0.8 → 매 iter 약 25%% 휴식으로 "
                         "다른 작업용 여유 확보(학습은 그만큼 느려짐). 1.0=제한없음")
+    p.add_argument("--grayworld", type=float, default=None,
+                   help="gray-world 색항상성 손실 가중치(None=config의 loss.lambda_grayworld 사용)")
     p.add_argument("--smoke", action="store_true",
                    help="소량 subset + 50 iter 로 빠른 파이프라인 점검")
     p.add_argument("--max_train_samples", type=int, default=0)
@@ -270,6 +273,13 @@ def train(cfg: dict, paths: Dict[str, str], args: argparse.Namespace) -> None:
         print("  warm-start: off")
 
     criterion = build_restoration_loss(cfg).to(device)
+    # gray-world 색항상성 손실(선택): CLI > config
+    gw_w = args.grayworld if args.grayworld is not None else float(cfg["loss"].get("lambda_grayworld", 0.0))
+    use_gw = gw_w and gw_w > 0
+    if use_gw:
+        criterion.add_term("grayworld", gray_world_loss, weight=gw_w)
+        cfg["loss"]["lambda_grayworld"] = gw_w
+        print(f"  loss: + gray-world (λ={gw_w})")
 
     lr = float(tr.get("lr", 1e-4))
     optimizer = torch.optim.Adam(model.parameters(), lr=lr,
@@ -301,8 +311,12 @@ def train(cfg: dict, paths: Dict[str, str], args: argparse.Namespace) -> None:
     csv_file = open(csv_path, "a", newline="", encoding="utf-8")
     cw = _csv.writer(csv_file)
     if csv_new:
-        cw.writerow(["epoch", "global_step", "lr", "train_total", "train_l1",
-                     "train_vgg", "train_ssim", "val_psnr", "val_ssim"])
+        cols = ["epoch", "global_step", "lr", "train_total", "train_l1",
+                "train_vgg", "train_ssim"]
+        if use_gw:
+            cols.append("train_grayworld")
+        cols += ["val_psnr", "val_ssim"]
+        cw.writerow(cols)
 
     # --- 학습 루프 ---
     stop = False
@@ -310,6 +324,8 @@ def train(cfg: dict, paths: Dict[str, str], args: argparse.Namespace) -> None:
     for epoch in range(start_epoch, num_epochs):
         model.train()
         sums = {"total": 0.0, "l1": 0.0, "vgg": 0.0, "ssim": 0.0}
+        if use_gw:
+            sums["grayworld"] = 0.0
         nb, t0 = 0, time.time()
         for low, high in train_loader:
             _it0 = time.time()
@@ -372,9 +388,12 @@ def train(cfg: dict, paths: Dict[str, str], args: argparse.Namespace) -> None:
                           scaler, cfg, epoch, global_step, best_psnr, best_ssim)
                 print("           ↳ best SSIM → best_ssim.pth")
 
-        cw.writerow([epoch, global_step, f"{cur_lr:.6e}", f"{avg['total']:.6f}",
-                     f"{avg['l1']:.6f}", f"{avg['vgg']:.6f}", f"{avg['ssim']:.6f}",
-                     f"{val_psnr:.6f}", f"{val_ssim:.6f}"])
+        row = [epoch, global_step, f"{cur_lr:.6e}", f"{avg['total']:.6f}",
+               f"{avg['l1']:.6f}", f"{avg['vgg']:.6f}", f"{avg['ssim']:.6f}"]
+        if use_gw:
+            row.append(f"{avg['grayworld']:.6f}")
+        row += [f"{val_psnr:.6f}", f"{val_ssim:.6f}"]
+        cw.writerow(row)
         csv_file.flush()
 
         if ((epoch + 1) % lg.get("sample_every", 5) == 0) or stop:
