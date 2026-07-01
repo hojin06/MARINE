@@ -13,6 +13,7 @@ datasets:
   euvp:   "datasets/EUVP/Paired"     # underwater_{imagenet,dark}/{trainA,trainB}
   turbid: "datasets/TURBID"          # Milk/Chlorophyll/DeepBlue/TURBID3D (탁도단계 eval)
   ruie:   "datasets/RUIE_repo"       # UIQS/UCCS/UTTS (no-ref / 검출 eval)
+  duo:    "datasets/DUO"             # Detecting Underwater Objects (COCO; M4 검출)
 
 # --- UIEB split 정의 (재현용 CSV; experiments/make_uieb_split.py 가 생성) ---
 uieb_split_csv: "configs/uieb_split.csv"
