@@ -43,7 +43,7 @@ from torchvision.transforms import InterpolationMode
 
 from src.models.bilateral_grid import build_from_config
 
-_IMG_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff"}
+_IMG_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
 
 
 def _default_ckpt() -> Optional[Path]:

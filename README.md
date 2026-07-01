@@ -10,18 +10,40 @@
 > 또한, 최종 배포 단계에선 Jetson Orin Nano 하드웨어에서 임베디드를 목표로 경량화 할 예정.
 ---
 
-## 핵심 결과 (Stage A 베이스라인)
+## 핵심 결과 (Stage A)
 
-UIEB test(55쌍, 256) PSNR/SSIM:
+UIEB test(55쌍) PSNR/SSIM (best=`marineA_grayworld`, warm-start+luma+gray-world):
 
-| 모델 | PSNR (dB) | SSIM |
-|---|---|---|
-| 무처리 입력 (degraded) | 18.03 | 0.798 |
-| LUNA2 저조도 가중치 (전이 전) | 15.27 | ~0.76 |
-| **MARINE Stage A** | **20.30** | **0.860** |
+| 모델 | PSNR@256 | PSNR(native) | SSIM |
+|---|---|---|---|
+| 무처리 입력 (degraded) | 18.03 | 17.81 | 0.795 |
+| LUNA2 저조도 가중치 (전이 전) | 15.27 | – | ~0.76 |
+| **MARINE Stage A (최종)** | **20.32** | **20.11** | **0.855** |
 
 > 저조도 가중치를 그대로 적용하면 무처리보다도 **나쁘다(15.3 < 18.0)** — 저조도≠수중 **도메인 시프트**의 직접 증거이며,
 > 재학습(15.3 → 20.3dB)이 그 격차를 메운다. 정성적으로 청록 색캐스트·haze 제거가 뚜렷하다.
+
+**Ablation (M3, UIEB native PSNR)**
+
+| 설정 | PSNR | 결론 |
+|---|---|---|
+| **warm-start** (LUNA2 전이) | **20.11** | scratch 대비 **+0.54dB** |
+| from-scratch | 19.57 | |
+| **luma anchor** (원본) | **20.11** | max-RGB 대비 **+0.19dB** |
+| max-RGB anchor | 19.92 | |
+
+→ **warm-start + luma-anchor** 채택. gray-world 손실은 baseline과 동률(no-ref UCIQE만 미세 우위).
+
+**No-reference (실제 수중, 입력 대비 Δ, 클수록 좋음)**
+
+| 데이터셋 | ΔUIQM | ΔUCIQE |
+|---|---|---|
+| UIEB test (paired) | +0.17 | +2.24 |
+| RUIE-UIQS | +0.22 | +1.06 |
+| RUIE-UCCS | +0.27 | +1.26 |
+| UIEB-challenging | +0.16 | +1.53 |
+
+**TURBID robustness**: 전 탁도단계에서 Δ>0, **탁도↑일수록 UCIQE 개선폭 증가**(색보정 효과가 탁수에서 더 큼).
 
 ---
 
@@ -120,9 +142,10 @@ MARINE/
 - ✅ **P0–P2**: 폴더·데이터 확보·설계
 - ✅ **M0**: 환경/어댑터 (스모크 통과)
 - ✅ **M1**: Stage A 학습 (UIEB test 20.30dB / 0.860)
-- 🔜 **M2**: 손실·평가 강화 (UIQM/UCIQE, gray-world 손실, TURBID robustness) — *~3.5h*
-- 🔜 **M3**: Ablation (warm-start vs scratch, guidance) — *~4h*
-- 🔜 **M4**: Stage B 검출 인지 joint (DUO + frozen YOLO) — *~1–2일*
+- ✅ **M2**: 손실·평가 강화 (UIQM/UCIQE, no-ref·paired 평가, gray-world, TURBID robustness)
+- ✅ **M3**: Ablation — warm-start(+0.54dB) · luma-anchor(+0.19dB) 우위 확인
+- 🔜 **M4**: Stage B 검출 인지 joint (DUO + frozen YOLO)
+- 🛠 **프로토타입**: `python enhance.py --input <폴더> --output <폴더> --metrics` (바로 사용 가능)
 
 상세·예상시간·자율실행 정책은 [`ROADMAP.md`](ROADMAP.md), 설계 근거는 [`DESIGN.md`](DESIGN.md).
 

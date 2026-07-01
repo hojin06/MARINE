@@ -51,6 +51,13 @@ M1(Stage A 베이스라인, UIEB test 20.30dB/0.860) 완료 이후의 작업 순
 
 ---
 
+## 진행 현황 (업데이트)
+- ✅ **M2 완료**: UIQM/UCIQE 지표, no-ref·paired 평가, gray-world 손실, TURBID robustness.
+  - UIEB native: PSNR 17.81→20.11, UIQM/UCIQE 개선. no-ref(RUIE/challenging) 전부 Δ>0. TURBID 탁도↑일수록 UCIQE 개선폭↑.
+- ✅ **M3 완료**: warm-start > scratch (**+0.54dB**), luma-anchor > max-RGB (**+0.19dB**) → 최종 `marineA_grayworld` 채택.
+- 🛠 **프로토타입 완성**: `enhance.py` (best=`runs/marine_best.pth`).
+- 🔜 **다음: M4** (DUO 검출).
+
 ## 총 예상 시간 요약
 - **M2 완료**: ~3.5h (오늘 내)
 - **M2+M3 완료**: ~+4h → 누적 ~1일(벽시계, GPU 학습 대기 포함)
