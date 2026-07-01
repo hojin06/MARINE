@@ -50,6 +50,19 @@ UIEB test(55쌍) PSNR/SSIM (best=`marineA_grayworld`, warm-start+luma+gray-world
 
 **TURBID robustness**: 전 탁도단계에서 Δ>0, **탁도↑일수록 UCIQE 개선폭 증가**(색보정 효과가 탁수에서 더 큼).
 
+**검출(M4, DUO 4클래스, YOLOv8n)**
+
+| 구성 | mAP50 | mAP50-95 |
+|---|---|---|
+| raw 학습 → raw 평가 (baseline) | **0.852** | 0.658 |
+| raw 학습 → MARINE-향상 평가 (frozen) | 0.770 (−0.082) | 0.561 |
+| MARINE-향상 학습 → 향상 평가 | 0.845 (−0.007) | 0.643 |
+
+> **정직한 결론**: DUO(비교적 맑은 수중)에서 향상은 검출을 **개선하지 않는다**. 고정 검출기엔 도메인 불일치로
+> 해롭고(−8.2pt), 향상도메인으로 재학습해도 raw와 사실상 동률(−0.7pt). → MARINE 의 가치는 **지각적 화질
+> (색/대비·UIQM/UCIQE·사람 눈)** 에 있으며, 이미 검출 가능한 벤치마크에선 검출 이득이 없다(강탁수에선 재검토 여지).
+> 향상기를 검출손실로 직접 최적화하는 **backprop joint 는 future work**(본 연구는 향상도메인 재학습으로 대체 검증).
+
 ---
 
 ## 아키텍처
@@ -149,7 +162,7 @@ MARINE/
 - ✅ **M1**: Stage A 학습 (UIEB test 20.30dB / 0.860)
 - ✅ **M2**: 손실·평가 강화 (UIQM/UCIQE, no-ref·paired 평가, gray-world, TURBID robustness)
 - ✅ **M3**: Ablation — warm-start(+0.54dB) · luma-anchor(+0.19dB) 우위 확인
-- 🔜 **M4**: Stage B 검출 인지 joint (DUO + frozen YOLO)
+- ✅ **M4**: DUO 검출 연구 — 향상은 검출 개선 없음(perceptual 가치 확인). backprop joint는 future work
 - 🛠 **프로토타입**: `python enhance.py --input <폴더> --output <폴더> --metrics` (바로 사용 가능)
 
 상세·예상시간·자율실행 정책은 [`ROADMAP.md`](ROADMAP.md), 설계 근거는 [`DESIGN.md`](DESIGN.md).

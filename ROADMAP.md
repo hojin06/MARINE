@@ -58,6 +58,12 @@ M1(Stage A 베이스라인, UIEB test 20.30dB/0.860) 완료 이후의 작업 순
 - 🛠 **프로토타입 완성**: `enhance.py` (best=`runs/marine_best.pth`).
 - 🔜 **다음: M4** (DUO 검출).
 
+## M4 완료 (검출 연구)
+- DUO(6671/1111, 4클래스) YOLOv8n. raw baseline mAP50=0.852.
+- M4.3a 향상→frozen raw검출기: 0.770 (−0.082, 도메인 불일치).
+- M4.3b 향상도메인 재학습→향상평가: 0.845 (−0.007, 사실상 동률).
+- **결론**: DUO(비교적 맑음)에선 향상이 검출 이득 없음 → MARINE 가치는 지각적 화질. backprop joint는 future work.
+
 ## 총 예상 시간 요약
 - **M2 완료**: ~3.5h (오늘 내)
 - **M2+M3 완료**: ~+4h → 누적 ~1일(벽시계, GPU 학습 대기 포함)
