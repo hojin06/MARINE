@@ -35,3 +35,5 @@ scratch/
 
 # DUO 학습 config (prep_duo_yolo.py 가 생성; 머신별 절대경로)
 configs/duo.yaml
+configs/duo_marine.yaml
+configs/duo_test_marine.yaml
