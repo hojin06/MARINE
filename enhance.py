@@ -99,6 +99,11 @@ def main() -> int:
     ap.add_argument("--max_side", type=int, default=1536, help="긴 변 상한(VRAM). 0=무제한")
     ap.add_argument("--device", default=None)
     ap.add_argument("--metrics", action="store_true", help="입력/출력 UIQM·UCIQE 출력")
+    # 후처리(대비/색) — 네트워크 출력의 muddy 함을 보완 (기본 ON)
+    ap.add_argument("--post", type=float, default=1.0,
+                    help="후처리 강도 0~1 (WB+CLAHE+채도). 0=끄기(네트워크 출력만)")
+    ap.add_argument("--no_wb", action="store_true", help="후처리에서 화이트밸런스 제외")
+    ap.add_argument("--sat", type=float, default=1.15, help="후처리 채도 게인")
     args = ap.parse_args()
 
     device = args.device or ("cuda" if torch.cuda.is_available() else "cpu")
@@ -132,6 +137,9 @@ def main() -> int:
             print(f"  [skip] {fp.name}: {e}")
             continue
         out = enhance_image(model, img, device, args.max_side)
+        if args.post > 0:
+            from marine.utils.postprocess import postprocess
+            out = postprocess(out, wb=(not args.no_wb), sat_gain=args.sat, strength=args.post)
         out_path = out_dir / f"{fp.stem}_marine.png"
         Image.fromarray(out).save(out_path)
         line = f"  [{i}/{len(inputs)}] {fp.name} → {out_path.name}"
