@@ -41,9 +41,14 @@ import torchvision.transforms.functional as TF
 from PIL import Image
 from torchvision.transforms import InterpolationMode
 
+try:  # AVIF 입력 지원(설치돼 있으면)
+    import pillow_avif  # noqa: F401
+except Exception:
+    pass
+
 from src.models.bilateral_grid import build_from_config
 
-_IMG_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp"}
+_IMG_EXTS = {".png", ".jpg", ".jpeg", ".bmp", ".tif", ".tiff", ".webp", ".avif"}
 
 
 def _default_ckpt() -> Optional[Path]:

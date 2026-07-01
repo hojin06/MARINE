@@ -1,0 +1,56 @@
+# =============================================================================
+# MARINE Stage A v2 — 전처리기 다듬기(2단계): 손실 재조정 + 색캐스트 augmentation
+# =============================================================================
+# 목적: 네트워크가 초록 담수 등 다양한 색캐스트에 과보정(갈색 shift)하지 않도록
+# 일반화 + muddy 완화. warm-start 는 기존 best(marineA_grayworld)에서.
+# 변경점(vs marine_stageA.yaml):
+#   - loss: L1 1.0→0.5(뭉갬 완화), VGG 0.5→1.0(선명), gray-world 0.1 유지
+#   - data.colorcast: 0.5 (low 입력 채널별 랜덤 게인 augmentation)
+# =============================================================================
+
+experiment_name: "marineA_v2"
+seed: 42
+
+data:
+  image_size: 256
+  eval_size: 256
+  num_workers: 4
+  colorcast: 0.5          # 색캐스트 augmentation 확률(도메인 일반화)
+
+model:
+  cw: 32
+  grid_size: 16
+  depth: 8
+  low_res: 256
+  refine_channels: 24
+  refine_blocks: 2
+  guidance_channels: 16
+  norm: "in"
+
+training:
+  batch_size: 16
+  num_epochs: 30
+  optimizer: "adam"
+  lr: 1.0e-4
+  betas: [0.9, 0.999]
+  weight_decay: 0.0
+  scheduler: "cosine"
+  eta_min_ratio: 0.01
+  amp: true
+  grad_clip: 1.0
+  warmstart: true
+
+loss:
+  lambda_l1: 0.5          # ↓ (L1 과다 → 뭉갬/저대비)
+  lambda_vgg: 1.0         # ↑ (perceptual → 선명)
+  lambda_ssim: 1.0
+  use_perceptual: true
+  perceptual_layers: ["relu3_3"]
+  lambda_grayworld: 0.1
+
+logging:
+  save_every: 5
+  eval_every: 1
+  sample_every: 5
+  num_samples: 4
+  tensorboard: false

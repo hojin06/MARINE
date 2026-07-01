@@ -20,9 +20,12 @@ LUNA2 와 동일하며 ``[-1, 1]`` 텐서 페어를 반환한다.
 from __future__ import annotations
 
 import csv
+import random
 import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence, Set
+
+import torch
 
 # --- LUNA2 src 를 import 경로에 추가 (marine 패키지 __init__ 이 이미 했더라도 안전망) ---
 _LUNA2_ROOT = Path(__file__).resolve().parents[3] / "LUNA2"
@@ -51,6 +54,8 @@ class UnderwaterAugment(PairedAugment):
         image_size: int = 256,
         training: bool = True,
         full_resize: bool = False,
+        p_colorcast: float = 0.0,
+        cast_range: tuple = (0.6, 1.3),
         **kwargs,
     ) -> None:
         # 저조도 전용 광학증강 비활성 (수중 도메인 핵심 차이)
@@ -58,6 +63,19 @@ class UnderwaterAugment(PairedAugment):
         super().__init__(
             image_size=image_size, training=training, full_resize=full_resize, **kwargs
         )
+        # 수중 색캐스트 augmentation (low 입력에만; target 불변 → 색항상성 일반화)
+        self.p_colorcast = p_colorcast
+        self.cast_range = cast_range
+
+    def _photometric_low_only(self, low_t: torch.Tensor) -> torch.Tensor:
+        """저조도 광학증강 대신 수중 색캐스트(채널별 랜덤 게인)를 low 에만 적용."""
+        if self.p_colorcast > 0 and random.random() < self.p_colorcast:
+            gains = torch.tensor(
+                [random.uniform(*self.cast_range) for _ in range(3)],
+                dtype=low_t.dtype,
+            ).view(3, 1, 1)
+            low_t = (low_t * gains).clamp(0.0, 1.0)
+        return low_t
 
 
 # ===========================================================================
@@ -89,12 +107,14 @@ class UIEBDataset(PairedImageDataset):
         augment: bool = True,
         full_resize: bool = False,
         transform=None,
+        colorcast: float = 0.0,
     ) -> None:
         root = Path(root)
         low_dir = root / "raw-890"
         high_dir = root / "reference-890"
         tf = transform or UnderwaterAugment(
-            image_size=image_size, training=augment, full_resize=full_resize
+            image_size=image_size, training=augment, full_resize=full_resize,
+            p_colorcast=colorcast,
         )
         super().__init__(
             low_dir=low_dir, high_dir=high_dir, image_size=image_size,
@@ -126,10 +146,12 @@ class EUVPPairedDataset(PairedImageDataset):
         full_resize: bool = False,
         transform=None,
         name: str = "EUVP",
+        colorcast: float = 0.0,
     ) -> None:
         subset_dir = Path(subset_dir)
         tf = transform or UnderwaterAugment(
-            image_size=image_size, training=augment, full_resize=full_resize
+            image_size=image_size, training=augment, full_resize=full_resize,
+            p_colorcast=colorcast,
         )
         super().__init__(
             low_dir=subset_dir / "trainA", high_dir=subset_dir / "trainB",
@@ -141,15 +163,22 @@ class EUVPPairedDataset(PairedImageDataset):
 # ===========================================================================
 # 빌더 — Stage A train / eval 데이터셋
 # ===========================================================================
-def build_marine_train(paths: Dict[str, str], image_size: int = 256) -> Dataset:
-    """Stage A 학습셋 = EUVP(imagenet+dark) + UIEB train split (ConcatDataset)."""
+def build_marine_train(paths: Dict[str, str], image_size: int = 256,
+                       colorcast: float = 0.0) -> Dataset:
+    """Stage A 학습셋 = EUVP(imagenet+dark) + UIEB train split (ConcatDataset).
+
+    colorcast>0 이면 low 입력에 채널별 랜덤 색캐스트 augmentation(도메인 일반화).
+    """
     dsets: List[Dataset] = []
+    if colorcast > 0:
+        print(f"  [aug] color-cast p={colorcast}")
 
     euvp_root = Path(paths["euvp"])
     for sd in EUVP_SUBSETS:
         d = euvp_root / sd
         if (d / "trainA").is_dir() and (d / "trainB").is_dir():
-            ds = EUVPPairedDataset(d, image_size=image_size, augment=True, name=f"EUVP-{sd}")
+            ds = EUVPPairedDataset(d, image_size=image_size, augment=True,
+                                   name=f"EUVP-{sd}", colorcast=colorcast)
             dsets.append(ds)
             print(f"  [train] EUVP/{sd}: {len(ds)} pairs")
         else:
@@ -157,7 +186,7 @@ def build_marine_train(paths: Dict[str, str], image_size: int = 256) -> Dataset:
 
     try:
         u = UIEBDataset(paths["uieb"], "train", paths["uieb_split_csv"],
-                        image_size=image_size, augment=True)
+                        image_size=image_size, augment=True, colorcast=colorcast)
         dsets.append(u)
         print(f"  [train] UIEB[train]: {len(u)} pairs")
     except (FileNotFoundError, RuntimeError) as e:

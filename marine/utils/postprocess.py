@@ -15,12 +15,23 @@ import cv2
 import numpy as np
 
 
-def gray_world_wb(rgb: np.ndarray) -> np.ndarray:
+def gray_world_wb(
+    rgb: np.ndarray,
+    clip: tuple = (0.6, 1.6),
+    strength: float = 0.6,
+) -> np.ndarray:
+    """제한(clamp)·부분블렌드형 gray-world WB (과보정 방지).
+
+    캐스트가 강한 입력(예: 진한 초록)에서 원본 gray-world 는 반대색(파랑/보라)으로
+    과보정된다. 채널 게인을 ``clip`` 범위로 제한하고 ``strength`` 만큼만 적용한다.
+    """
     a = rgb.astype(np.float32)
     means = a.reshape(-1, 3).mean(0)
     gray = float(means.mean())
-    scale = gray / np.clip(means, 1e-3, None)
-    return np.clip(a * scale, 0, 255).astype(np.uint8)
+    scale = np.clip(gray / np.clip(means, 1e-3, None), clip[0], clip[1])
+    wb = np.clip(a * scale, 0, 255)
+    out = a * (1.0 - strength) + wb * strength
+    return np.clip(out, 0, 255).astype(np.uint8)
 
 
 def clahe_contrast(rgb: np.ndarray, clip: float = 2.0, tile: int = 8) -> np.ndarray:

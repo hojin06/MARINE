@@ -167,6 +167,8 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--lr", type=float, default=None)
     p.add_argument("--num_workers", type=int, default=None)
     p.add_argument("--no_warmstart", action="store_true")
+    p.add_argument("--warmstart_ckpt", type=str, default=None,
+                   help="warm-start 소스 체크포인트 override(기본: paths_marine.warmstart)")
     p.add_argument("--no_amp", action="store_true")
     p.add_argument("--gpu_util", type=float, default=1.0,
                    help="목표 GPU 평균 가동률(0~1). 예: 0.8 → 매 iter 약 25%% 휴식으로 "
@@ -242,7 +244,8 @@ def train(cfg: dict, paths: Dict[str, str], args: argparse.Namespace) -> None:
     print(HRULE)
 
     # --- 데이터 ---
-    train_set = build_marine_train(paths, image_size=img_size)
+    train_set = build_marine_train(paths, image_size=img_size,
+                                   colorcast=float(dc.get("colorcast", 0.0)))
     eval_set = build_marine_eval(paths, eval_size=eval_size)
     if args.max_train_samples > 0:
         idx = list(range(min(args.max_train_samples, len(train_set))))
@@ -273,7 +276,7 @@ def train(cfg: dict, paths: Dict[str, str], args: argparse.Namespace) -> None:
     n_params = sum(p.numel() for p in model.parameters())
     print(f"  model params: {n_params:,} ({n_params/1e3:.1f} K)")
     if tr.get("warmstart", True) and not args.resume:
-        ws = Path(paths["warmstart"])
+        ws = Path(args.warmstart_ckpt) if args.warmstart_ckpt else Path(paths["warmstart"])
         if ws.is_file():
             load_warmstart(model, ws, device)
         else:
