@@ -245,7 +245,8 @@ def train(cfg: dict, paths: Dict[str, str], args: argparse.Namespace) -> None:
 
     # --- 데이터 ---
     train_set = build_marine_train(paths, image_size=img_size,
-                                   colorcast=float(dc.get("colorcast", 0.0)))
+                                   colorcast=float(dc.get("colorcast", 0.0)),
+                                   synth_limit=int(dc.get("synth_limit", 0)))
     eval_set = build_marine_eval(paths, eval_size=eval_size)
     if args.max_train_samples > 0:
         idx = list(range(min(args.max_train_samples, len(train_set))))

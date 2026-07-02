@@ -17,17 +17,25 @@ import numpy as np
 
 def gray_world_wb(
     rgb: np.ndarray,
-    clip: tuple = (0.6, 1.6),
-    strength: float = 0.6,
+    clip: tuple = (0.5, 1.8),
+    base_strength: float = 0.5,
+    max_strength: float = 0.85,
+    adaptive: bool = True,
 ) -> np.ndarray:
-    """제한(clamp)·부분블렌드형 gray-world WB (과보정 방지).
+    """캐스트-비례 적응형 gray-world WB (과보정 방지 + 강캐스트 더 교정).
 
-    캐스트가 강한 입력(예: 진한 초록)에서 원본 gray-world 는 반대색(파랑/보라)으로
-    과보정된다. 채널 게인을 ``clip`` 범위로 제한하고 ``strength`` 만큼만 적용한다.
+    채널 게인을 ``clip`` 으로 제한하고, 적용 강도를 **캐스트 강도에 비례**시킨다:
+    거의 중성이면 약하게, 진한 초록/노랑이면 강하게(단 ``max_strength`` 로 상한).
+    게인 clamp + 강도 상한의 이중 안전장치로 파랑/보라 아티팩트를 막는다.
     """
-    a = rgb.astype(np.float32)
+    a = np.asarray(rgb).astype(np.float32)
     means = a.reshape(-1, 3).mean(0)
     gray = float(means.mean())
+    if adaptive:
+        cast = float(means.std() / (gray + 1e-6))          # 색 불균형(0=중성)
+        strength = float(np.clip(base_strength + 1.5 * cast, base_strength, max_strength))
+    else:
+        strength = base_strength
     scale = np.clip(gray / np.clip(means, 1e-3, None), clip[0], clip[1])
     wb = np.clip(a * scale, 0, 255)
     out = a * (1.0 - strength) + wb * strength

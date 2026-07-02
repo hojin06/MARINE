@@ -19,7 +19,10 @@ UIEB test(55쌍) PSNR/SSIM (best=`marineA_grayworld`, warm-start+luma+gray-world
 | 무처리 입력 (degraded) | 18.03 | 17.81 | 0.795 |
 | LUNA2 저조도 가중치 (전이 전) | 15.27 | – | ~0.76 |
 | MARINE Stage A (v1) | 20.32 | 20.11 | 0.855 |
-| **MARINE Stage A v2 (최종)** | **20.82** | **20.55** | **0.872** |
+| MARINE Stage A v2 | 20.82 | 20.55 | 0.872 |
+| **MARINE Stage A v3 (최종)** | **21.60** | **21.24** | **0.888** |
+
+> v3 native UCIQE 29.87 (입력 24.94, +4.9). UIQM 2.84.
 
 > 저조도 가중치를 그대로 적용하면 무처리보다도 **나쁘다(15.3 < 18.0)** — 저조도≠수중 **도메인 시프트**의 직접 증거이며,
 > 재학습(15.3 → 20.3dB)이 그 격차를 메운다. 정성적으로 청록 색캐스트·haze 제거가 뚜렷하다.
@@ -37,7 +40,11 @@ UIEB test(55쌍) PSNR/SSIM (best=`marineA_grayworld`, warm-start+luma+gray-world
 
 **v2 튜닝 (지각 품질 개선)**: 실제 초록 담수 등에서 출력이 muddy/과보정되던 문제를 두 축으로 개선 →
 - 네트워크: **색캐스트 augmentation**(low 입력 채널 랜덤 게인) + **손실 재조정**(L1 1.0→0.5, VGG 0.5→1.0). native PSNR 20.11→**20.55**, no-ref 일반화 개선.
-- 추론 후처리: **적응형 gray-world WB(게인 clamp+블렌드) + CLAHE + 채도**([`marine/utils/postprocess.py`](marine/utils/postprocess.py), `enhance.py` 기본 ON). 강캐스트 과보정(보라 아티팩트) 제거.
+- 추론 후처리: **캐스트-비례 적응형 gray-world WB(게인 clamp+강도 상한) + CLAHE + 채도**([`marine/utils/postprocess.py`](marine/utils/postprocess.py), `enhance.py` 기본 ON). 강캐스트 과보정(보라 아티팩트) 제거.
+
+**v3 튜닝 (합성 수중열화 학습)**: 강한 초록/노랑 담수 캐스트가 학습 분포 밖이라 남던 문제 →
+clean(EUVP good + UIEB ref)에 물리기반 강캐스트/산란을 **인위 생성**한 페어를 섞어 학습([`marine/data/synthetic_uw.py`](marine/data/synthetic_uw.py)).
+native PSNR 20.55→**21.24**, UCIQE 27.83→**29.87**. 잔여 노랑은 **완화**(완전제거는 clean 타겟의 비중성 한계로 future work — 중성 타겟 필요).
 
 **No-reference (실제 수중, 입력 대비 Δ, 클수록 좋음)**
 

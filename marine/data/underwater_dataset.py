@@ -164,10 +164,12 @@ class EUVPPairedDataset(PairedImageDataset):
 # 빌더 — Stage A train / eval 데이터셋
 # ===========================================================================
 def build_marine_train(paths: Dict[str, str], image_size: int = 256,
-                       colorcast: float = 0.0) -> Dataset:
-    """Stage A 학습셋 = EUVP(imagenet+dark) + UIEB train split (ConcatDataset).
+                       colorcast: float = 0.0, synth_limit: int = 0) -> Dataset:
+    """Stage A 학습셋 = EUVP(imagenet+dark) + UIEB train split (+합성열화) ConcatDataset.
 
-    colorcast>0 이면 low 입력에 채널별 랜덤 색캐스트 augmentation(도메인 일반화).
+    colorcast>0 이면 low 입력에 채널별 랜덤 색캐스트 augmentation.
+    synth_limit>0 이면 clean(EUVP trainB + UIEB reference)에 합성 수중열화를 입힌
+    페어를 최대 synth_limit 장 추가(참조상한 돌파 + 강한 초록/노랑 캐스트 커버).
     """
     dsets: List[Dataset] = []
     if colorcast > 0:
@@ -191,6 +193,19 @@ def build_marine_train(paths: Dict[str, str], image_size: int = 256,
         print(f"  [train] UIEB[train]: {len(u)} pairs")
     except (FileNotFoundError, RuntimeError) as e:
         print(f"  [skip]  UIEB[train]: {e}")
+
+    # 합성 수중열화 페어(clean = EUVP trainB + UIEB reference)
+    if synth_limit > 0:
+        from marine.data.synthetic_uw import SyntheticUWDataset
+        clean_dirs = [euvp_root / sd / "trainB" for sd in EUVP_SUBSETS]
+        clean_dirs.append(Path(paths["uieb"]) / "reference-890")
+        try:
+            syn = SyntheticUWDataset(clean_dirs, image_size=image_size,
+                                     augment=True, limit=synth_limit)
+            dsets.append(syn)
+            print(f"  [train] SynthUW: {len(syn)} pairs (합성 강캐스트)")
+        except RuntimeError as e:
+            print(f"  [skip]  SynthUW: {e}")
 
     if not dsets:
         raise RuntimeError("MARINE 학습 데이터셋이 0개입니다. paths_marine.yaml 확인.")

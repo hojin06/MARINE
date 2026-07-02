@@ -1,0 +1,54 @@
+# =============================================================================
+# MARINE Stage A v3 — 합성 수중열화 학습(참조상한 돌파 + 강한 초록/노랑 캐스트 커버)
+# =============================================================================
+# v2 대비: data.synth_limit 추가 — clean(EUVP trainB + UIEB reference)에 물리기반
+# 강캐스트/산란을 인위로 입힌 페어를 섞어 학습. warm-start 는 v2 best 에서.
+# =============================================================================
+
+experiment_name: "marineA_v3"
+seed: 42
+
+data:
+  image_size: 256
+  eval_size: 256
+  num_workers: 4
+  colorcast: 0.3          # 실데이터 low 색캐스트 aug(v2보다 낮춤; synth가 강캐스트 담당)
+  synth_limit: 5000       # 합성 강캐스트 페어 수(EUVP trainB+UIEB ref 에서)
+
+model:
+  cw: 32
+  grid_size: 16
+  depth: 8
+  low_res: 256
+  refine_channels: 24
+  refine_blocks: 2
+  guidance_channels: 16
+  norm: "in"
+
+training:
+  batch_size: 16
+  num_epochs: 30
+  optimizer: "adam"
+  lr: 1.0e-4
+  betas: [0.9, 0.999]
+  weight_decay: 0.0
+  scheduler: "cosine"
+  eta_min_ratio: 0.01
+  amp: true
+  grad_clip: 1.0
+  warmstart: true
+
+loss:
+  lambda_l1: 0.5
+  lambda_vgg: 1.0
+  lambda_ssim: 1.0
+  use_perceptual: true
+  perceptual_layers: ["relu3_3"]
+  lambda_grayworld: 0.15   # 색항상성 약간 강화
+
+logging:
+  save_every: 5
+  eval_every: 1
+  sample_every: 5
+  num_samples: 4
+  tensorboard: false
